@@ -14,7 +14,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;backgr
   padding:14px 16px;
   position:sticky;
   top:0;
-  z-index:10;
+  z-index:20;
   box-shadow:0 2px 10px rgba(0,0,0,0.06);
 }
 .topbar h1{font-size:16px;font-weight:700}
@@ -29,9 +29,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;backgr
   margin:14px 0;
   position:sticky;
   top:56px;
-  z-index:999;
-  background:#f3f4f6;
-  padding:10px 0;
+  z-index:15;
 }
 .stat-card{
   background:#fff;
@@ -39,9 +37,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;backgr
   padding:12px;
   text-align:center;
   box-shadow:0 6px 18px rgba(0,0,0,0.06);
-  transition:.2s;
 }
-.stat-card:hover{transform:translateY(-2px)}
 .stat-label{font-size:11px;color:#9ca3af}
 .stat-value{font-size:18px;font-weight:800;color:#111;margin-top:4px}
 
@@ -62,7 +58,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;backgr
   height:100%;
   width:0%;
   background:linear-gradient(90deg,#10b981,#34d399);
-  transition:width .35s ease;
+  transition:width .3s ease;
 }
 
 /* ===== CARD ===== */
@@ -88,7 +84,6 @@ input{
   padding:8px;
   border-radius:10px;
   border:1px solid #ddd;
-  margin-right:6px;
 }
 
 .badge{
@@ -100,6 +95,16 @@ input{
   color:#065f46;
   margin-top:6px;
 }
+
+/* streak animation */
+.streak-pop{
+  animation:pop .4s ease;
+}
+@keyframes pop{
+  0%{transform:scale(1)}
+  50%{transform:scale(1.4);color:#10b981}
+  100%{transform:scale(1)}
+}
 </style>
 </head>
 <body>
@@ -110,7 +115,6 @@ input{
 
 <div class="container">
 
-<!-- STATS -->
 <div class="stats-bar">
   <div class="stat-card">
     <div class="stat-label">Hoàn thành</div>
@@ -130,14 +134,12 @@ input{
   </div>
 </div>
 
-<!-- PROGRESS BAR -->
 <div class="progress-wrap">
   <div class="progress-bg">
     <div class="progress-fill" id="pbar"></div>
   </div>
 </div>
 
-<!-- WEIGHT -->
 <div class="card">
   <h3>📊 Cân nặng</h3>
   <input id="weight" type="number" placeholder="kg">
@@ -162,6 +164,9 @@ for(let i=1;i<=120;i++){
 let state=JSON.parse(localStorage.getItem("state")||"{}");
 let weights=JSON.parse(localStorage.getItem("weights")||"[]");
 
+let lastStreak=0;
+let chart;
+
 function calcStreak(){
   let s=0;
   for(let i=schedule.length-1;i>=0;i--){
@@ -177,14 +182,26 @@ function updateStats(){
   document.getElementById("s-done").textContent=done;
   document.getElementById("s-left").textContent=120-done;
   document.getElementById("s-pct").textContent=pct+"%";
-  document.getElementById("s-streak").textContent=calcStreak();
+
+  const streakEl=document.getElementById("s-streak");
+  const streak=calcStreak();
+  streakEl.textContent=streak;
+
   document.getElementById("pbar").style.width=pct+"%";
+
+  if(streak>lastStreak){
+    streakEl.classList.remove("streak-pop");
+    void streakEl.offsetWidth;
+    streakEl.classList.add("streak-pop");
+  }
+
+  lastStreak=streak;
 }
 
 function saveWeight(){
   let w=document.getElementById("weight").value;
-  if(!w)return;
-  weights.push({date:new Date().toLocaleDateString(),w});
+  if(!w) return;
+  weights.push({date:new Date().toLocaleDateString(),w:Number(w)});
   localStorage.setItem("weights",JSON.stringify(weights));
   renderChart();
 }
@@ -203,9 +220,9 @@ function render(){
     const div=document.createElement("div");
     div.className="card"+(state[i]?" done":"");
     div.innerHTML=`
-      <b>Ngày ${d.day}</b>
-      <div>🍽 ${d.meal}</div>
-      <div>🏃 ${d.work}</div>
+      <b>Ngày ${d.day}</b><br>
+      🍽 ${d.meal}<br>
+      🏃 ${d.work}<br>
       <div class="badge">Plan</div><br>
       <button onclick="toggle(${i})">${state[i]?"Đã xong":"Hoàn thành"}</button>
     `;
@@ -215,7 +232,6 @@ function render(){
   updateStats();
 }
 
-let chart;
 function renderChart(){
   const ctx=document.getElementById("chart");
   if(chart) chart.destroy();
@@ -227,8 +243,8 @@ function renderChart(){
       datasets:[{
         label:'Cân nặng',
         data:weights.map(x=>x.w),
-        tension:.3,
-        borderColor:'#10b981'
+        borderColor:'#10b981',
+        tension:0.3
       }]
     }
   });
