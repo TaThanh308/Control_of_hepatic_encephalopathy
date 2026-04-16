@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lịch Giảm Cân 4 Tháng Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f3f4f6;min-height:100vh}
+
+.topbar{
+  background:#fff;
+  padding:14px 16px;
+  position:sticky;
+  top:0;
+  z-index:10;
+  box-shadow:0 2px 10px rgba(0,0,0,0.06);
+}
+.topbar h1{font-size:16px;font-weight:700}
+
+.container{max-width:780px;margin:auto;padding:14px}
+
+/* ===== STATS ===== */
+.stats-bar{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin:14px 0;
+  position:sticky;
+  top:56px;
+  z-index:999;
+  background:#f3f4f6;
+  padding:10px 0;
+}
+.stat-card{
+  background:#fff;
+  border-radius:14px;
+  padding:12px;
+  text-align:center;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+  transition:.2s;
+}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-label{font-size:11px;color:#9ca3af}
+.stat-value{font-size:18px;font-weight:800;color:#111;margin-top:4px}
+
+.progress-wrap{
+  background:#fff;
+  padding:10px 14px;
+  border-radius:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+  margin-bottom:14px;
+}
+.progress-bg{
+  height:8px;
+  background:#e5e7eb;
+  border-radius:999px;
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#10b981,#34d399);
+  transition:width .35s ease;
+}
+
+/* ===== CARD ===== */
+.card{
+  background:#fff;
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+}
+.card.done{opacity:.5;text-decoration:line-through}
+
+button{
+  padding:7px 12px;
+  border:none;
+  border-radius:10px;
+  background:#10b981;
+  color:#fff;
+  cursor:pointer;
+  font-weight:600;
+}
+input{
+  padding:8px;
+  border-radius:10px;
+  border:1px solid #ddd;
+  margin-right:6px;
+}
+
+.badge{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:999px;
+  font-size:11px;
+  background:#ecfdf5;
+  color:#065f46;
+  margin-top:6px;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🔥 Lịch giảm cân 4 tháng</h1>
+</div>
+
+<div class="container">
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-label">Hoàn thành</div>
+    <div class="stat-value" id="s-done">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Streak</div>
+    <div class="stat-value" id="s-streak">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Còn lại</div>
+    <div class="stat-value" id="s-left">120</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Tiến độ</div>
+    <div class="stat-value" id="s-pct">0%</div>
+  </div>
+</div>
+
+<!-- PROGRESS BAR -->
+<div class="progress-wrap">
+  <div class="progress-bg">
+    <div class="progress-fill" id="pbar"></div>
+  </div>
+</div>
+
+<!-- WEIGHT -->
+<div class="card">
+  <h3>📊 Cân nặng</h3>
+  <input id="weight" type="number" placeholder="kg">
+  <button onclick="saveWeight()">Lưu</button>
+  <canvas id="chart"></canvas>
+</div>
+
+<div id="list"></div>
+
+</div>
+
+<script>
+const meals=["Trứng + bánh mì","Yến mạch","Chuối + trứng","Bánh mì","Yến mạch","Chuối","Ăn nhẹ"];
+const workouts=["Đi bộ","Cardio","Nhảy dây","Nghỉ","Squat","HIIT","Đi bộ nhẹ"];
+
+const schedule=[];
+for(let i=1;i<=120;i++){
+  let di=(i-1)%7;
+  schedule.push({day:i,meal:meals[di],work:workouts[di]});
+}
+
+let state=JSON.parse(localStorage.getItem("state")||"{}");
+let weights=JSON.parse(localStorage.getItem("weights")||"[]");
+
+function calcStreak(){
+  let s=0;
+  for(let i=schedule.length-1;i>=0;i--){
+    if(state[i]) s++; else break;
+  }
+  return s;
+}
+
+function updateStats(){
+  const done=Object.values(state).filter(Boolean).length;
+  const pct=Math.round(done/120*100);
+
+  document.getElementById("s-done").textContent=done;
+  document.getElementById("s-left").textContent=120-done;
+  document.getElementById("s-pct").textContent=pct+"%";
+  document.getElementById("s-streak").textContent=calcStreak();
+  document.getElementById("pbar").style.width=pct+"%";
+}
+
+function saveWeight(){
+  let w=document.getElementById("weight").value;
+  if(!w)return;
+  weights.push({date:new Date().toLocaleDateString(),w});
+  localStorage.setItem("weights",JSON.stringify(weights));
+  renderChart();
+}
+
+function toggle(i){
+  state[i]=!state[i];
+  localStorage.setItem("state",JSON.stringify(state));
+  render();
+}
+
+function render(){
+  const list=document.getElementById("list");
+  list.innerHTML="";
+
+  schedule.forEach((d,i)=>{
+    const div=document.createElement("div");
+    div.className="card"+(state[i]?" done":"");
+    div.innerHTML=`
+      <b>Ngày ${d.day}</b>
+      <div>🍽 ${d.meal}</div>
+      <div>🏃 ${d.work}</div>
+      <div class="badge">Plan</div><br>
+      <button onclick="toggle(${i})">${state[i]?"Đã xong":"Hoàn thành"}</button>
+    `;
+    list.appendChild(div);
+  });
+
+  updateStats();
+}
+
+let chart;
+function renderChart(){
+  const ctx=document.getElementById("chart");
+  if(chart) chart.destroy();
+
+  chart=new Chart(ctx,{ 
+    type:'line',
+    data:{
+      labels:weights.map(x=>x.date),
+      datasets:[{
+        label:'Cân nặng',
+        data:weights.map(x=>x.w),
+        tension:.3,
+        borderColor:'#10b981'
+      }]
+    }
+  });
+}
+
+render();
+renderChart();
+</script>
+
+</body>
+</html>
